@@ -1,78 +1,83 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System;
 using UnityEngine;
+using UnityEditor;
 
+[Serializable]
 public class NoiseGenerator {
 
 	public int seed = 0;
 
-	public int width = 256;
-	public int height = 256;
+	public float scale = 10;
+	public float amplitude = 1;
+	public int octaves = 1;
+	public float redistribution = 1;
+	public Vector2 offset = Vector2.zero;
 
-	private float frequency = 10;
-	private int octaves = 1;
-	private float redistribution = 1;
-
-	public float Frequency {
-		get {
-			return frequency;
-		}
-		set {
-			frequency = Mathf.Clamp(value, 1f, float.MaxValue);
-		}
-	}
-
-	public int Octaves {
-		get {
-			return octaves;
-		}
-		set {
-			octaves = Mathf.Clamp(value, 1, 5);
-		}
-	}
-
-	public float Redistribution {
-		get {
-			return redistribution;
-		}
-		set {
-			redistribution = Mathf.Clamp(value, 0.01f, 10f);
-		}
-	}
+	private bool isDirty = false;
 
 	public float[,] getMap(int width, int height) {
 		float[,] map = new float[width, height];
 
+		System.Random rng = new System.Random(seed);
+
+		float max = float.MinValue;
+		float min = float.MaxValue;
+
 		for(int y = 0; y < height; y++) {
 			for(int x = 0; x < width; x++) {
-				map[x,y] = getCoord(x, y);
+				var value = getCoord(x, y, width, height, offset.x + rng.Next (-100000, 100000), offset.y + rng.Next (-100000, 100000));
+
+				if(value > max) {
+					max = value;
+				}
+				if(value < min) {
+					min = value;
+				}
+
+				map[x,y] = value;
+			}
+		}
+
+		for(int y = 0; y < height; y++) {
+			for(int x =0; x < width; x++) {
+				map[x, y] = Mathf.InverseLerp(min, max, map[x, y]);
 			}
 		}
 
 		return map;
 	}
 
-	public float getCoord(int x, int y) {
+	private float getCoord(int x, int y, int width, int height, float offsetX, float offsetY) {
 		float value = 0;
-		float freq = frequency;
 
-		// for(int octave = 1; octave <= octaves; octave++) {
-		// 	float nx = (float)x / (float)width;
-		// 	float ny = (float)y / (float)height;
+		float freq = scale;
+		float amp = amplitude;
 
-		// 	float co = 1f/(float)octaves;
-		// 	value += co * Mathf.PerlinNoise(freq * nx, freq * ny);
-		// 	freq *= 2;
-		// }
+		for(int octave = 1; octave <= octaves; octave++) {
+			
+			float nx = (float)x / (float)width;
+			float ny = (float)y / (float)height;
 
-		float nx = (float)x / (float)width;
-		float ny = (float)y / (float)height;
+			value = amp * Mathf.PerlinNoise(nx * freq, ny * freq);
 
-		value = Mathf.PerlinNoise(frequency * nx, frequency * ny)
-				+ 0.5f * Mathf.PerlinNoise((frequency + 2) * nx, (frequency + 2) * ny)
-				+ 0.25f * Mathf.PerlinNoise((frequency + 4) * nx, (frequency + 4) * ny);
+			freq *= 2;
+			amp /= 2;
+		}
 
-		value -= 0.25f;
-		return Mathf.Pow(value, redistribution);
+		return value;
 	}
 }
+
+// [CustomPropertyDrawer(typeof(NoiseGenerator))]
+// public class NoiseGeneratorDrawer: PropertyDrawer {
+
+// 	public override void OnGUI(Rect position, SerializedProperty property, GUIContent label) {
+// 		EditorGUI.BeginProperty(position, label, property);
+
+		
+
+// 		EditorGUI.EndProperty();
+// 	}
+// }

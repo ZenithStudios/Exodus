@@ -3,38 +3,20 @@ using UnityEditor;
 
 public class NoiseVisualizer : EditorWindow {
 
-	private Texture2D texture;
-	
-	private float frequency = 20f;
+	private const int width = 256, height = 256;
 	private int seed = 0;
-
+	private float scale = 1;
 	private int octaves = 1;
+	private float persistance = 0.5f, lacunarity = 2;
+	private float redistribution = 1;
+	private Vector2 offset = Vector2.zero;
 
-	private bool useRadialMask  = false;
-	private float radius = 1f;
+	private NoiseGenerator noisemap = new NoiseGenerator();
 
-	private int width = 256;
-	private int height = 256;
-	private bool isDirty = false;
+	private Texture2D texture;
 
-	private int Width {
-		get {
-			return width;
-		}
-		set{
-			isDirty = true;
-			width = value;
-		}
-	}
-
-	private int Height {
-		get {
-			return height;
-		}
-		set{
-			isDirty = true;
-			height = value;
-		}
+	void Awake() {
+		texture = new Texture2D(width, height);
 	}
 
 	[MenuItem("Window/Noise Visualizer")]
@@ -42,64 +24,38 @@ public class NoiseVisualizer : EditorWindow {
 		GetWindow<NoiseVisualizer>("Noise Visualizer");
 	}
 
-	public Color calcPixel(int x, int y) {
-		float xCoord = (float)x / width * frequency + seed;
-		float yCoord = (float)y / height * frequency + seed;
-
-		float value = (Mathf.PerlinNoise(xCoord, yCoord));
-		return new Color(value, value, value);
-	}
-
 	private void updateTexture() {
-		for(int x = 0; x < width; x++) {
-			for(int y = 0; y < height; y++) {
-				texture.SetPixel(x, y, calcPixel(x, y));
+		for(int y = 0; y < width; y++) {
+			for(int x = 0; x < height; x++) {
+				float value = noisemap.getCoord(x, y);
+				Color color = new Color(value, value, value);
+				texture.SetPixel(x, y, color);
 			}
 		}
 
-		texture.Apply();
-	}
-
-	private void recreateTexture() {
-		texture = new Texture2D(width, height);
-		updateTexture();
-		
-		isDirty = false;
+		texture.Apply ();
 	}
 
 	void Update() {
-		if(isDirty) {
-			recreateTexture();
-		} else {
-			updateTexture();
-		}
-	}
-
-	void Awake() {
-		recreateTexture();
+		updateTexture();
 	}
 
 	void OnGUI() {
 		
 		EditorGUI.DrawPreviewTexture(new Rect(3, position.yMax - height, width, height), texture, null, ScaleMode.ScaleToFit);
 
-		EditorGUILayout.BeginHorizontal();
-		width = EditorGUILayout.IntField("Width: ", width);
-		height = EditorGUILayout.IntField("Height: ", height);
-		EditorGUILayout.EndHorizontal();
-		frequency = EditorGUILayout.FloatField("Frequency: ", frequency);
+		noisemap.Frequency = EditorGUILayout.FloatField("Scale: ", noisemap.Frequency);
 		EditorGUILayout.Space();
 
-		seed = EditorGUILayout.IntField("Seed: ", seed);
+		noisemap.Octaves = EditorGUILayout.IntField("Octaves: ", noisemap.Octaves);
+		noisemap.Redistribution = EditorGUILayout.Slider(noisemap.Redistribution, 0.01f, 10);
+		EditorGUILayout.Space();
+
+		noisemap.seed = EditorGUILayout.IntField("Seed: ", noisemap.seed);
 		if(GUILayout.Button("Randomize")) {
-			seed = (int)(Random.Range(-1f, 1f) * int.MaxValue);
+			noisemap.seed = (int)(Random.Range(-1f, 1f) * int.MaxValue);
 		}
 		EditorGUILayout.Space();
-
-		useRadialMask = EditorGUILayout.Toggle("Use Radial Mask: ", useRadialMask);
-		if(useRadialMask) {
-
-		}
 	}
 	
 }

@@ -283,10 +283,28 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6d1cf89f6193219449df7883752f2b67, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  randomSeed: 1
-  seed: 0
-  boundingX: 0
-  boundingZ: 0
+  width: 0
+  height: 0
+  topGen:
+    m_Seed: 0
+    m_Height: 256
+    m_Width: 256
+    m_Scale: 10
+    m_Octaves: 1
+    m_Lacunarity: 2
+    m_Redistribution: 1
+    m_Persistance: 0.5
+    m_Offset: {x: 0, y: 0}
+  underGen:
+    m_Seed: 0
+    m_Height: 256
+    m_Width: 256
+    m_Scale: 10
+    m_Octaves: 1
+    m_Lacunarity: 2
+    m_Redistribution: 1
+    m_Persistance: 0.5
+    m_Offset: {x: 0, y: 0}
 --- !u!4 &2071844302
 Transform:
   m_ObjectHideFlags: 0

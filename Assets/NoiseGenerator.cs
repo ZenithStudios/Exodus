@@ -7,77 +7,199 @@ using UnityEditor;
 [Serializable]
 public class NoiseGenerator {
 
-	public int seed = 0;
+	private float[,] map = new float[1, 1];
+	private bool isDirty = true;
 
-	public float scale = 10;
-	public float amplitude = 1;
-	public int octaves = 1;
-	public float redistribution = 1;
-	public Vector2 offset = Vector2.zero;
+	[SerializeField, Candlelight.PropertyBackingField]
+    private int m_Seed = 0;
+	public int Seed{
+        get {
+            return m_Seed;
+        }
 
-	private bool isDirty = false;
+        set {
+			isDirty = true;
+            m_Seed = value;
+        }
+    }
 
-	public float[,] getMap(int width, int height) {
-		float[,] map = new float[width, height];
+	[Header("Size")]
+	[SerializeField, Candlelight.PropertyBackingField]
+    private int m_Height = 256;
+	public int Height{
+        get {
+            return m_Height;
+        }
+        set {
+			isDirty = true;
+            m_Height = value;
+        }
+    }
 
-		System.Random rng = new System.Random(seed);
+	[SerializeField, Candlelight.PropertyBackingField]
+    private int m_Width = 256;
+	public int Width{
+        get {
+            return m_Width;
+        }
+        set {
+			isDirty = true;
+            m_Width = value;
+        }
+    }
 
-		float max = float.MinValue;
-		float min = float.MaxValue;
+	[Header("Properties")]
+	[SerializeField, Candlelight.PropertyBackingField]
+    private float m_Scale = 10;
+	public float Scale{
+        get {
+            return m_Scale;
+        }
+        set {
+			isDirty = true;
+            m_Scale = value;
+        }
+    }
 
-		for(int y = 0; y < height; y++) {
-			for(int x = 0; x < width; x++) {
-				var value = getCoord(x, y, width, height, offset.x + rng.Next (-100000, 100000), offset.y + rng.Next (-100000, 100000));
+	[SerializeField, Candlelight.PropertyBackingField]
+    private int m_Octaves = 1;
+	public int Octaves{
+        get {
+            return m_Octaves;
+        }
 
-				if(value > max) {
-					max = value;
-				}
-				if(value < min) {
-					min = value;
-				}
+        set {
+			isDirty = true;
+            m_Octaves = value;
+        }
+    }
 
-				map[x,y] = value;
+	[SerializeField, Candlelight.PropertyBackingField]
+    private float m_Lacunarity = 2;
+	public float Lacunarity{
+        get {
+            return m_Lacunarity;
+        }
+
+        set {
+			isDirty = true;
+            m_Lacunarity = value;
+        }
+    }
+
+	[SerializeField, Candlelight.PropertyBackingField]
+    private float m_Redistribution = 1;
+	public float Redistribution{
+        get {
+            return m_Redistribution;
+        }
+
+        set {
+			isDirty = true;
+            m_Redistribution = value;
+        }
+    }
+
+	[SerializeField, Candlelight.PropertyBackingField]
+    private float m_Persistance = 0.5f;
+	public float Persistance{
+        get {
+            return m_Persistance;
+        }
+
+        set {
+			isDirty = true;
+            m_Persistance = value;
+        }
+    }
+
+	[SerializeField, Candlelight.PropertyBackingField]
+    private Vector2 m_Offset = Vector2.zero;
+	public Vector2 Offset{
+        get {
+            return m_Offset;
+        }
+
+        set {
+			isDirty = true;
+            m_Offset = value;
+        }
+    }
+
+    public float[,] Map {
+		get {
+			if(isDirty) {
+				map = GenerateNoiseMap(Width, Height, Seed, Scale, Octaves, Persistance, Lacunarity, Redistribution, Offset);
+				isDirty = false;
 			}
-		}
 
-		for(int y = 0; y < height; y++) {
-			for(int x =0; x < width; x++) {
-				map[x, y] = Mathf.InverseLerp(min, max, map[x, y]);
-			}
+			return map;
 		}
-
-		return map;
 	}
 
-	private float getCoord(int x, int y, int width, int height, float offsetX, float offsetY) {
-		float value = 0;
+	public NoiseGenerator() {
+		updateMap();
+	}
 
-		float freq = scale;
-		float amp = amplitude;
+	private float[,] GenerateNoiseMap(int mapWidth, int mapHeight, int m_Seed, float m_Scale, int m_Octaves, float m_Persistance, float m_Lacunarity, float m_Redistribution, Vector2 m_Offset) {
+		float[,] noiseMap = new float[mapWidth,mapHeight];
 
-		for(int octave = 1; octave <= octaves; octave++) {
-			
-			float nx = (float)x / (float)width;
-			float ny = (float)y / (float)height;
-
-			value = amp * Mathf.PerlinNoise(nx * freq, ny * freq);
-
-			freq *= 2;
-			amp /= 2;
+		System.Random prng = new System.Random (m_Seed);
+		Vector2[] octaveOffsets = new Vector2[m_Octaves];
+		for (int i = 0; i < m_Octaves; i++) {
+			float offsetX = prng.Next (-100000, 100000) + m_Offset.x;
+			float offsetY = prng.Next (-100000, 100000) + m_Offset.y;
+			octaveOffsets [i] = new Vector2 (offsetX, offsetY);
 		}
 
-		return value;
+		if (m_Scale <= 0) {
+			m_Scale = 0.0001f;
+		}
+
+		float maxNoiseHeight = float.MinValue;
+		float minNoiseHeight = float.MaxValue;
+
+		float halfWidth = mapWidth / 2f;
+		float halfHeight = mapHeight / 2f;
+
+
+		for (int y = 0; y < mapHeight; y++) {
+			for (int x = 0; x < mapWidth; x++) {
+		
+				float amplitude = 1;
+				float frequency = 1;
+				float noiseHeight = 0;
+
+				for (int i = 0; i < m_Octaves; i++) {
+					float sampleX = (x-halfWidth) / m_Scale * frequency + octaveOffsets[i].x;
+					float sampleY = (y-halfHeight) / m_Scale * frequency + octaveOffsets[i].y;
+
+					float perlinValue = Mathf.PerlinNoise (sampleX, sampleY) * 2 - 1;
+					noiseHeight += perlinValue * amplitude;
+
+					amplitude *= m_Persistance;
+					frequency *= m_Lacunarity;
+				}
+
+				if (noiseHeight > maxNoiseHeight) {
+					maxNoiseHeight = noiseHeight;
+				} else if (noiseHeight < minNoiseHeight) {
+					minNoiseHeight = noiseHeight;
+				}
+				noiseMap [x, y] = Mathf.Pow(noiseHeight, Mathf.Clamp(m_Redistribution, 0.01f, 5f));
+			}
+		}
+
+		for (int y = 0; y < mapHeight; y++) {
+			for (int x = 0; x < mapWidth; x++) {
+				noiseMap [x, y] = Mathf.InverseLerp (minNoiseHeight, maxNoiseHeight, noiseMap [x, y]);
+			}
+		}
+
+		return noiseMap;
+	}
+
+	public void updateMap() {
+		map = GenerateNoiseMap(Width, Height, Seed, Scale, Octaves, Persistance, Lacunarity, Redistribution, Offset);
 	}
 }
-
-// [CustomPropertyDrawer(typeof(NoiseGenerator))]
-// public class NoiseGeneratorDrawer: PropertyDrawer {
-
-// 	public override void OnGUI(Rect position, SerializedProperty property, GUIContent label) {
-// 		EditorGUI.BeginProperty(position, label, property);
-
-		
-
-// 		EditorGUI.EndProperty();
-// 	}
-// }
